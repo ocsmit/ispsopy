@@ -1,8 +1,5 @@
 import numpy as np
 
-
-# Subroutines
-
 def main(s):
     diversity = mean_diversity = []
     evals = iter = 0
@@ -60,4 +57,38 @@ def colmin(x):
 
 def myround(x, digits=0):
     return np.around(x, digits)
+
+
+# Subroutines
+class ispso:
+    def __init__(self, s):
+        self.best = float('inf')
+        self.worst = -self.best
+        self.pbest = np.zeros([s.get('S'), s.get('D') + 1])
+        self.gb = 0
+        self.gbest = np.zeros([s.get('D') + 1])
+        self.gbest[s.get('D')] = self.best
+        self.pbest[:, [s.get('D')]] = self.best
+
+        self.prev_gbestf = self.worst
+        self.f = []
+        self.age = np.repeat(0, s.get('S'))
+        self.V = []
+        self.halflife_age = myround(0.5*s.get('age'))
+
+        self.seed = []
+        self.species = []
+
+    def start(self):
+        diversity = mean_diversity = []
+        evals = iter = 0
+        num_exclusions_per_nest = []
+        num_exclusions = 0
+
+
+
+
+
+
+
 
