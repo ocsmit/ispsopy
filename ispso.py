@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import random
 from scipy.stats.qmc import Sobol
 
@@ -122,10 +123,12 @@ class ispso:
             seed_random = [random.uniform(-1, 1)
                            for i in range(626)]
 
-        pop = []
-        if len(pop) == 0:
+        pop = pd.DataFrame()
+        if pop.empty:
             x = self.new_x(s.get("S"), seed_sobol)
-
+        else:
+            x = pop.sort_values('f', ascending=False)
+            x = x[x.columns[0:self.s.get('D')]].iloc[0:self.s.get('S')]
 
 
         self.pbest = np.zeros([s.get("S"), s.get("D") + 1])
@@ -143,10 +146,6 @@ class ispso:
         self.seed = []
         self.species = []
 
-        pop = []
-        if pop is None:
-            x = self.new_x(s.get("S"), seed.get("sobol"))
-
     def start(self):
         diversity = mean_diversity = []
         evals = iter = 0
@@ -158,12 +157,24 @@ class ispso:
         #    diversity[iter] = np.mean(np.sqrt((x.T -  np.amin(x, axis=0)).T))
 
     def new_x(self, n=1, seed=-1):
+        '''
+        New particle positions
+        '''
         if seed >= 0:
             r = Sobol(self.s.get("D"), True, seed).random(n)
         else:
             r = Sobol(self.s.get("D"), True).random(n)
-
         return r
+
+    def new_v(self, n=1):
+        '''
+        New particle velocities
+        '''
+        v = pd.DataFrame()
+        for i in range(n):
+            r = random.uniform(0, 1)
+            v[i] = [self.s.get('vmax0') / np.sqrt(np.sum(r**2)) * r]
+        return v.T
 
     def evaluate_f(self, s):
 
