@@ -52,7 +52,7 @@ class ispso_parameters:
 
 
 # Functions
-def f5(x, sol=False):
+def f4(x, sol=False):
     if sol:
         return np.array([[0.08], [0.246], [0.449], [0.679], [0.93]])
     else:
@@ -63,23 +63,15 @@ def f5(x, sol=False):
         )
 
 
-def f4(x, sol=False):
-    if sol:
-        return np.array([[3.0, 2.0], [-3.78, -3.28], [3.58, -1.86], [-2.815, 3.125]])
-    if isinstance(x, np.ndarray):
-        return (x[:, 0] ** 2 + x[:, 1] - 11) ** 2 + (x[:, 0] + x[:, 1] ** 2 - 7) ** 2
-    else:
-        raise Exception("Not type np.ndarray")
-
 def diagonal(s):
     return sum((s.xmax - s.xmin)**2)**0.5
 
 # TESTING PARAMETERS
 s = ispso_parameters()
 s.f = f4
-s.D = 2
-s.xmin = np.repeat(-6, s.D)
-s.xmax = np.repeat(6, s.D)
+s.D = 1
+s.xmin = np.array([0])
+s.xmax = np.array([1])
 s.S = 10 + math.floor(2 * (s.D)**0.5)
 s.vmax = (s.xmax - s.xmin) * 0.1
 s.exclusion_factor = 3
@@ -91,7 +83,6 @@ s.age = 10
 s.rspecies = diagonal(s) * 0.1
 s.rnest = diagonal(s) * 0.1
 s.plot_distance_to_solution = 0.01
-print(s.xmax, s.xmin, s.rprey, s.w, s.deterministic)
 
 
 # Subroutines
@@ -176,6 +167,7 @@ class ispso:
             x = pop.sort_values("f", ascending=False)
             self.x = x[x.columns[0: self.s.get("D")]].iloc[0: self.s.get("S")]
 
+
         self.pbest = np.zeros([s.S, s.D + 1])
         self.gb = 0
         self.gbest = np.zeros([s.D + 1])
@@ -193,19 +185,24 @@ class ispso:
 
     def start(self):
         diversity = mean_diversity = []
-        evals = iter = 0
+        self.evals = iter = 0
         num_exclusions_per_nest = []
         num_exclusions = 0
 
+        self.evaluate_f(self.s)
+        self.update_v()
+        '''
         while True:
             iter += 1
-            diversity[iter] = np.mean(np.sqrt((self.x.T -
-                np.amin(self.x, axis=0)).T))
-            mean_diversity[iter] = np.mean(diversity[:iter])
+            diversity.append(np.mean(np.sqrt((self.x -
+                np.amin(self.x, axis=0)).T)))
+            mean_diversity.append(np.mean(diversity[:iter]))
 
-            self.evaluate_f()
+            self.evaluate_f(self.s)
+            print(self.x)
+        '''
 
-    def new_x(self, n=1, seed=-1):
+    def new_x(self, n=0, seed=-1):
         """
         New particle positions
         """
@@ -213,7 +210,7 @@ class ispso:
             r = Sobol(self.s.D, True, seed).random(n)
         else:
             r = Sobol(self.s.D, True).random(n)
-        return r
+        return (self.s.xmin + (self.s.xmax - self.s.xmin) * r.T).T
 
     def new_v(self, n=1):
         """
@@ -228,8 +225,8 @@ class ispso:
     def evaluate_f(self, s):
 
         f = []
-        for i in range(self.S):
-            f[i] = s.F(self.x[i])
+        for i in range(s.S):
+            f.append(s.f(self.x[i]))
             if f[i] < self.pbest[i, self.s.D] or (f[i] == float("inf") and
                     self.pbest[i, self.s.D] == float("inf")):
                 self.pbest[i] = [self.x[i, ], f[i]]
@@ -237,18 +234,55 @@ class ispso:
                         self.gbest[self.s.get('D')] == float("inf")):
                     self.gbest = [self.x[i, ], f[i]]
                     self.gb = 1
+        self.evals += self.s.S
+        self.age += 1
 
-        return f
+        self.f = f
 
-    def update_v(self, f):
-        lbest = np.zeros([self.s.S, self.s.D + 1])
-        l = sorted(f)
-        species = []
+    def update_v(self):
+        f = self.f
+        lbest = np.zeros([self.s.S, self.s.D])
+        l = np.argsort(f)
+        species = [0 for i in range(self.s.S - 1)]
         self.seed = []
         isolated = np.repeat(0, self.s.S)
-        for i in self.s.S:
-            if self.seed == None:
-                lbest[l[i], ] = self.x[l[i],]
-                self.seed = l[i]
+        for i in range(self.s.S):
+            if len(self.seed) == 0:
+                lbest.T[0][l[i]] = self.x[l[i]]
+                self.seed = [l[i]]
+                species = [0 for i in range(self.s.S)]
+                species[l[i]] = self.seed[0]
+                continue
+            n = len(self.seed)
+            found = False
+            for j in range(n):
+                if mydist2(self.x[self.seed[j], ] -
+                        self.x[l[i], ]) <= self.s.rspecies:
+                    found = True
+                    np.put(isolated, [l[i], self.seed[j]], 0)
+                    species[l[i - 1]] = self.seed[j]
+                    lbest.T[0][l[i]] = self.x[self.seed[j]]
+                    break
+            if found:
+                continue
+            self.seed.append(l[i])
+            species.append(self.seed[n])
+            n += 1
 
-        return
+            #lbest.T[l[i]] = self.x[l[i]]
+
+            #fseed = f[l[i]]
+
+            #{SPSO_NEIGHBOURING_SPECIES
+            # A new species seed searches for superior particles within its
+            # speciation radius that failed to form their own species, but
+            # happened to belong to seeds with better fitness values.  This
+            # behaviour allows superior particles to share their
+            # information with neighbouring species having relatively poor
+            # fitness values.
+
+#            for j in range(self.s.S - 1):
+
+
+r = ispso(s)
+r.start()
