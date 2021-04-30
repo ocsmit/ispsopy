@@ -74,6 +74,7 @@ s.xmin = np.array([0])
 s.xmax = np.array([1])
 s.S = 10 + math.floor(2 * (s.D)**0.5)
 s.vmax = (s.xmax - s.xmin) * 0.1
+s.vmax0 = diagonal(s)*0.001
 s.exclusion_factor = 3
 s.maxiter = 200
 s.xeps = 0.001
@@ -138,10 +139,23 @@ def myround(x, digits=0):
     return np.around(x, digits)
 
 
+def arr_assign(arr, key, val):
+    try:
+        arr[key] = val
+        return
+    except IndexError:
+        # Do not extend the array for negative indices
+        # That is ridiculously counterintuitive
+        assert key >= 0
+        arr.extend(((key + 1) - len(arr)) * [None])
+        arr[key] = val
+        return
+
+
 class ispso:
     def __init__(self, s):
         self.s = s
-
+        self.nest = []
         if s.S < 2:
             raise Exception("Swarm size must be greater than 1")
 
@@ -166,6 +180,7 @@ class ispso:
         else:
             x = pop.sort_values("f", ascending=False)
             self.x = x[x.columns[0: self.s.get("D")]].iloc[0: self.s.get("S")]
+        self.v = self.new_v(s.S)
 
 
         self.pbest = np.zeros([s.S, s.D + 1])
@@ -243,35 +258,33 @@ class ispso:
         f = self.f
         lbest = np.zeros([self.s.S, self.s.D])
         l = np.argsort(f)
-        species = [0 for i in range(self.s.S - 1)]
+        species = []
         self.seed = []
-        isolated = np.repeat(0, self.s.S)
+        isolated = np.repeat(1, self.s.S)
         for i in range(self.s.S):
             if len(self.seed) == 0:
                 lbest.T[0][l[i]] = self.x[l[i]]
-                self.seed = [l[i]]
-                species = [0 for i in range(self.s.S)]
-                species[l[i]] = self.seed[0]
-                continue
+                self.seed.append(l[i])
+                arr_assign(species,  self.seed[-1], self.seed[-1])
             n = len(self.seed)
             found = False
             for j in range(n):
-                if mydist2(self.x[self.seed[j], ] -
-                        self.x[l[i], ]) <= self.s.rspecies:
+                if mydist2(self.x[self.seed[j]] -
+                        self.x[l[i]]) <= self.s.rspecies:
                     found = True
                     np.put(isolated, [l[i], self.seed[j]], 0)
-                    species[l[i - 1]] = self.seed[j]
+                    arr_assign(species, l[i], self.seed[j])
                     lbest.T[0][l[i]] = self.x[self.seed[j]]
                     break
             if found:
                 continue
-            self.seed.append(l[i])
-            species.append(self.seed[n])
+            arr_assign(self.seed, n, l[i])
+            arr_assign(species, self.seed[n], self.seed[n])
             n += 1
 
-            #lbest.T[l[i]] = self.x[l[i]]
+            lbest.T[0][l[i]] = self.x[l[i]]
 
-            #fseed = f[l[i]]
+            fseed = f[l[i]]
 
             #{SPSO_NEIGHBOURING_SPECIES
             # A new species seed searches for superior particles within its
@@ -281,7 +294,65 @@ class ispso:
             # information with neighbouring species having relatively poor
             # fitness values.
 
-#            for j in range(self.s.S - 1):
+            for j in range(self.s.S):
+                if j == l[i]:
+                    continue
+                if f[j] < fseed and mydist2(self.x[j]-self.x[l[i]]) <= self.s.rspecies:
+                    print('species')
+                    lbest.T[0][l[i]] = self.x[j]
+                    fseed = f[j]
+
+            # End of SPSO_NEIGHBOURING_SPECIES}
+
+            #{SPSO_NEIGHBOURING_PBESTS
+            # A new species seed searches for superior pbests within its
+            # speciation radius. This behaviour allows superior pbests to
+            # share their information with neighbouring species having
+            # relatively poor fitness values.
+            for j in range(self.s.S):
+                if j == l[i]:
+                    continue
+                if f[j] < fseed and mydist2(self.pbest[j][self.s.D]-self.x[l[i]]) <= self.s.rspecies:
+                    print("pbests")
+                    lbest.T[0][l[i]] = self.pbest[j][self.s.D]
+                    fseed = self.pbest[j][self.s.D]
+
+            # End of SPSO_NEIGHBOURING_PBESTS}
+
+            #{SPSO_ISOLATED_SPECIES
+            # Isolated particles form one species.
+            if any(isolated == 1):
+                seed_l = []
+                for x in self.seed:
+                    if isolated[x] == 0:
+                        seed_l.append(x)
+                self.age[isolated == 1] += 1
+                n = len(seed_l) - 1
+                tmp = pd.DataFrame()
+                tmp["isolated"] = isolated
+                tmp["f"] = f
+                tmp = tmp.sort_values("f")
+                tmp = tmp[tmp["isolated"]==1].index.tolist()
+
+                seed_l[n] = tmp[0]
+                species[n] = -seed_l[n]
+                for ii in np.where(isolated==1)[0]:
+                    lbest[ii] = self.x[seed_l[n]]
+                    arr_assign(species, ii, -seed_l[n])
+                    species[ii] = -seed_l[n]
+            # End of SPSO_ISOLATED_SPECIES}
+
+            # Constriction PSO (Clerc and Kennedy, 2000)
+            self.v = (
+                    self.s.w * (self.v.T + self.s.c1 * Sobol(self.s.D).random() *
+                            self.pbest[:, 0] + self.s.c2 *
+                            Sobol(self.s.D).random() * lbest.T)
+                    ).T
+
+            if self.nest == None:
+                pass
+
+
 
 
 r = ispso(s)
