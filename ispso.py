@@ -481,13 +481,13 @@ class ispso:
                     self.num_exclusions,
                 )
                 self.num_exclusions = 0
-
-                self.fly_away_and_substitute(
-                    mydist(self.x[:, : self.s.D])[i] <= self.s.rspecies
-                )
                 print(
                     f"{self.x[i]} added at iter={self.iter}, run={run} "
                     f"evals={self.evals}, nest={self.nest.shape[0] - 1}"
+                )
+
+                self.fly_away_and_substitute(
+                    mydist(self.x[:, : self.s.D])[i] <= self.s.rspecies
                 )
 
         if not self.nest.empty and self.s.exclusion_factor and self.num_exclusions:
