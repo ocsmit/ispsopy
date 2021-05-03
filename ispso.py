@@ -1,6 +1,5 @@
 import numpy as np
 import sys
-import math
 import pandas as pd
 import random
 from scipy.stats.qmc import Sobol
@@ -432,7 +431,8 @@ class ispso:
         for i in self.seed:
             if self.age[i] < self.s.age:
                 continue
-            halflife = self.pop.iloc[self.s.S * self.iter-1 - self.halflife_age: self.s.S * self.iter-1]
+            index_range = self.s.S * np.array([i for i in range(self.iter - self.halflife_age, self.iter)]) + i
+            halflife = self.pop.iloc[index_range]
             if self.s.D == 1:
                 cmax = colmax(halflife.iloc[:, 0:self.s.D].T.to_numpy())
                 cmin = colmin(halflife.iloc[:, 0:self.s.D].T.to_numpy())
@@ -442,6 +442,7 @@ class ispso:
 
             ev = np.exp(np.mean(np.log((cmax - cmin) /
                         (self.s.xmax - self.s.xmin))))
+
             if ev <= self.s.xeps and np.std(halflife['f']) <= self.s.feps:
                 run = self.evals - self.s.S + i
                 tmp = pd.DataFrame({'x': self.x[i], 'f': self.f[i],
