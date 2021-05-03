@@ -212,7 +212,7 @@ class ispso:
         d = mydist(self.x)
         n = d.shape[0]
         preyed = np.repeat(0, self.s.S)
-        for i in range(0, n-1):
+        for i in range(0, n):
             for j in range(i + 1, n):
                 if preyed[j] or d[i, j] > self.s.rprey:
                     continue
@@ -375,9 +375,9 @@ class ispso:
 
         # Constriction PSO (Clerc and Kennedy, 2000)
         self.v = (
-                self.s.w * (self.v.T + self.s.c1 * Sobol(self.s.D).random() *
+                self.s.w * (self.v.T + self.s.c1 * np.random.uniform(size=(self.s.D))*
                         self.pbest[:, 0] + self.s.c2 *
-                        Sobol(self.s.D).random() * lbest.T)
+                        np.random.uniform(size=(self.s.D)) * lbest.T)
                 ).T
 
         v = self.v.to_numpy()
@@ -390,7 +390,7 @@ class ispso:
                 dist2 = dist[0, self.nest.shape[0]]
                 if any(dist2 < 2 * self.s.rnest):
                     self.num_exclusions += 1
-                    v[i] = v[i] + self.s.rspecies * Sobol(self.s.D).random()
+                    v[i] = v[i] + self.s.rspecies * np.random.uniform(size=(self.s.D))
 
         v = np.maximum(-self.s.vmax, v)
         v = np.minimum(self.s.vmax, v)
@@ -401,12 +401,12 @@ class ispso:
             k = len(j)
             if k:
                 v[i, j] = (self.x[i, j] -
-                           self.s.xmin[j][0]) * Sobol(k).random()
+                           self.s.xmin[j][0]) * np.random.uniform(size=(k))
             j = np.where(self.x[i] + v[i] > self.s.xmax)[0]
             k = len(j)
             if k:
                 v[i, j] = (self.s.xmax[j][0] -
-                           self.x[i, j]) * Sobol(k).random()
+                           self.x[i, j]) * np.random.uniform(size=(k))
         # End confinment
 
         self.v = pd.DataFrame(v)
@@ -432,7 +432,7 @@ class ispso:
             if self.age[i] < self.s.age:
                 continue
             index_range = self.s.S * np.array([i for i in range(self.iter - self.halflife_age, self.iter)]) + i
-            halflife = self.pop.iloc[index_range]
+            halflife = self.pop.iloc[index_range][::-1]
             if self.s.D == 1:
                 cmax = colmax(halflife.iloc[:, 0:self.s.D].T.to_numpy())
                 cmin = colmin(halflife.iloc[:, 0:self.s.D].T.to_numpy())
