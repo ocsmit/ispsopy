@@ -1,3 +1,10 @@
+###############################################################################
+# Name:    ispso
+# Purpose: Python port of ISPSO.
+#          Original R code can be found at github.com/HuidaeCho/ispso.git
+# Author:  Owen Smith
+# Since:   2021-05-03
+###############################################################################
 import numpy as np
 import sys
 import pandas as pd
@@ -9,6 +16,77 @@ np.warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
 class ispso_parameters:
+    '''
+    Wrapper for ISPSO parameters
+
+    Attributes
+    ----------
+        f : function
+            Double type vector
+            default: None
+        D : integer
+            Dimension
+            default: None
+        xmin : np.ndarray
+            Double type vector
+            default: None
+        xmax : np.ndarray
+            Double type vector
+            default: None
+        vmax : np.ndarray
+            D dimension vector, max speed of starting particles
+            default: None
+        vmax0 : float
+            Max speed of new particle, Scalar
+            default: None
+        S : integer
+            Swarm size
+            default: None
+        rspecies : float
+            Species radius
+            default: None
+        rprey : float
+            Prey radius
+            default: None
+        rnest : float
+            Nest radius
+            default: None
+        age : integer
+            Age threshold
+            default: None
+        xeps : float
+            Threshold value for normalized geometric mean
+            default: None
+        feps : float
+            Threshold value for the standard deviation of a particles past
+            halflife fitness values
+            default: None
+        exclusion_factor : integer
+            Exclusion factor
+            default: None
+        maxiter : integer
+            Maximum number of iterations
+            default: None
+        c1 : float
+            Cognitive coefficient
+            default: 2.05
+        c2 : float
+            Social coefficient
+            default: 2.05
+        w : float
+            Constriction factor
+            default: (2 / np.abs(2 - c1 - c2 - ((c1 + c2) ** 2 - 4 *
+                      (c1 - c2)) ** 0.5)
+        deterministic : boolean
+            default: False
+        dont_stop : boolean
+            Whether or not to stop when max iter is reached
+            default: True
+        stop_after_solutions : integer
+            Number of solutions to stop after. Only stopped if
+            stop_after_solutions > 0.
+            default: 0
+    '''
 
     # Double type vector
     f = None
@@ -31,47 +109,50 @@ class ispso_parameters:
     # Swarm size
     S = None
 
-    c1 = 2.05
-    c2 = 2.05
-
-    w = 2 / np.abs(2 - c1 - c2 - ((c1 + c2) ** 2 - 4 * (c1 - c2)) ** 0.5)
+    # Species radius
     rspecies = None
+
+    # Prey radius
     rprey = None
+
+    # Nest radius
     rnest = None
+
+    # Age threshold
     age = None
+
+    # Threshold value for normalized geometric mean
     xeps = None
+
+    # Threshold value for the standard deviation of a particles past
+    # halflife fitness values
     feps = None
+
+    # Exclusion factor
     exclusion_factor = None
+
+    # Maximum number of iterations
     maxiter = None
 
     # Optional
+    # Cognitive coefficient
+    c1 = 2.05
+    # Social coefficient
+    c2 = 2.05
+
+    # Constriction factor
+    w = 2 / np.abs(2 - c1 - c2 - ((c1 + c2) ** 2 - 4 * (c1 - c2)) ** 0.5)
+
+    # Currently unused
     deterministic = False
-    plot_method = "movement"
-    plot_x = 1
-    plot_delay = 0
-    plot_distance_to_solution = 0.05
-    plot_save_prefix = ""
+
+    # Misc
     dont_stop = True
     stop_after_solutions = 0
 
-
-# Functions
+# Subroutines
 def diagonal(s):
     return sum((s.xmax - s.xmin) ** 2) ** 0.5
-
-
-# Subroutines
-def plotswarm(s):
-    na = ["", "profile", "diversity", "mean_diversity", 1]
-    if s.plot_method in na:
-        return False
-    return True
-
-
-def plotmethod(s, method):
-    if method == s.plot_method:
-        return True
-    return False
 
 
 def mydist(*args):
